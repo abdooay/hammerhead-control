@@ -1,0 +1,88 @@
+name: Publish release and APT repository
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hammerhead-apt-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check versioned release tag
+        run: |
+          /usr/bin/python3 - <<'PY'
+          import os
+          from hammerhead import __version__
+          assert os.environ['GITHUB_REF_TYPE'] == 'tag', 'Run this workflow on a release tag.'
+          assert os.environ['GITHUB_REF_NAME'] == 'v' + __version__, 'Tag must match application version.'
+          PY
+          echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pyqt6 qt6-wayland apt-utils gnupg desktop-file-utils
+      - name: Test and build
+        run: |
+          QT_QPA_PLATFORM=offscreen /usr/bin/python3 -m unittest discover -s tests -v
+          /usr/bin/python3 packaging/build_deb.py
+      - name: Keep previously released packages available
+        run: |
+          mkdir -p previous
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases" --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name' > "$RUNNER_TEMP/releases"
+          while IFS= read -r tag; do
+            gh release download "$tag" --pattern 'hammerhead-control_*_all.deb' --dir previous
+          done < "$RUNNER_TEMP/releases"
+          for package in dist/*.deb; do
+            if [ -f "previous/$(basename "$package")" ]; then
+              cmp "$package" "previous/$(basename "$package")"
+            else
+              cp "$package" previous/
+            fi
+          done
+      - name: Import archive signing key
+        env:
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+        run: |
+          test -n "$APT_SIGNING_KEY"
+          install -d -m 700 "$RUNNER_TEMP/hammerhead-gnupg"
+          echo "GNUPGHOME=$RUNNER_TEMP/hammerhead-gnupg" >> "$GITHUB_ENV"
+          printf '%s' "$APT_SIGNING_KEY" | gpg --homedir "$RUNNER_TEMP/hammerhead-gnupg" --batch --import
+      - name: Build signed APT repository
+        run: |
+          mkdir site
+          cp packaging/index.html site/index.html
+          touch site/.nojekyll
+          /usr/bin/python3 packaging/build_repository.py --packages previous --output site/apt --signing-key "$(cat packaging/archive-key.fingerprint)"
+      - name: Publish Debian installer
+        run: |
+          if ! gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" dist/*.deb packaging/archive-key.asc --verify-tag --title "Hammerhead Control $GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+      - name: Deploy APT repository
+        id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Remove temporary signing material
+        if: always()
+        run: |
+          if [ -d "$RUNNER_TEMP/hammerhead-gnupg" ]; then
+            gpgconf --homedir "$RUNNER_TEMP/hammerhead-gnupg" --kill gpg-agent
+            rm -rf -- "$RUNNER_TEMP/hammerhead-gnupg"
+          fi

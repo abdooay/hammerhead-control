@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Hammerhead Control
+Comment=Control ANC, ambient listening and the wireless source on Razer Hammerhead V3 HyperSpeed
+Exec="@ROOT@/run.sh"
+Icon=hammerhead-control
+Terminal=false
+Categories=AudioVideo;Audio;
+Keywords=Razer;Hammerhead;Earbuds;ANC;Ambient;HyperSpeed;
+StartupNotify=true

@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+if [ "$1" = configure ] && [ -d /run/udev ]; then
+    udevadm control --reload-rules
+    for node in /sys/class/hidraw/*; do
+        [ -f "$node/device/uevent" ] || continue
+        if grep -q '^HID_ID=0003:00001532:00000A61$' "$node/device/uevent"; then
+            udevadm trigger --action=change "$node"
+        fi
+    done
+    udevadm settle --timeout=5
+fi

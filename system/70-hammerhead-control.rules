@@ -1,0 +1,3 @@
+# Allow the active local desktop user to control this model's HID interface.
+# Audio interfaces and other Razer products are unaffected.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1532", ATTRS{idProduct}=="0a61", TAG+="uaccess"

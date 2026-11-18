@@ -1,0 +1,6 @@
+#!/usr/bin/python3
+"""Run the system-installed Hammerhead Control application."""
+import sys
+sys.path.insert(0, '/usr/share/hammerhead-control')
+from hammerhead.__main__ import main
+raise SystemExit(main())

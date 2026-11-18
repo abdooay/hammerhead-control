@@ -1,0 +1,4 @@
+Types: deb
+URIs: https://abdooay.github.io/hammerhead-control/apt/
+Suites: ./
+Signed-By: /usr/share/keyrings/hammerhead-control-archive-keyring.gpg
