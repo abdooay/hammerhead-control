@@ -42,7 +42,7 @@ def build(output):
         desktop = stage / 'usr/share/applications/hammerhead-control.desktop'
         desktop.parent.mkdir(parents=True)
         desktop.write_text((ROOT / 'assets/hammerhead-control.desktop.in').read_text().replace('"@ROOT@/run.sh"', '/usr/bin/hammerhead-control'))
-        key = stage / 'usr/share/keyrings/hammerhead-control-archive-keyring.gpg'
+        key = stage / 'etc/apt/keyrings/hammerhead-control-archive-keyring.gpg'
         key.parent.mkdir(parents=True)
         key.write_bytes(subprocess.check_output(['gpg', '--batch', '--dearmor'], input=(ROOT / 'packaging/archive-key.asc').read_bytes()))
         metadata = stage / 'DEBIAN'
@@ -62,7 +62,7 @@ Description: KDE controls for Razer Hammerhead V3 HyperSpeed earbuds
  Native Qt controls for ANC, ambient listening and source switching.
  Includes a system tray and a signed APT update source.
 ''')
-        (metadata / 'conffiles').write_text('/etc/apt/sources.list.d/hammerhead-control.sources\n')
+        (metadata / 'conffiles').write_text('/etc/apt/sources.list.d/hammerhead-control.sources\n/etc/apt/keyrings/hammerhead-control-archive-keyring.gpg\n')
         for script in ['postinst', 'postrm']:
             copy(f'packaging/{script}', f'DEBIAN/{script}', 0o755)
         sums = []

@@ -23,15 +23,20 @@ class PackageTests(unittest.TestCase):
             for excluded in ('Agent/', '__pycache__', '/home/', 'private', 'middleware.js', 'tests/'):
                 self.assertNotIn(excluded, contents)
             for expected in ('usr/bin/hammerhead-control', 'usr/lib/udev/rules.d/70-hammerhead-control.rules',
-                             'usr/share/keyrings/hammerhead-control-archive-keyring.gpg',
+                             'etc/apt/keyrings/hammerhead-control-archive-keyring.gpg',
                              'etc/apt/sources.list.d/hammerhead-control.sources'):
                 self.assertIn(expected, contents)
             self.assertEqual(subprocess.check_output(['dpkg-deb', '-f', str(package), 'Architecture'], text=True).strip(), 'all')
             extracted = output / 'extracted'
             subprocess.run(['dpkg-deb', '-x', str(package), str(extracted)], check=True)
+            metadata = output / 'metadata'
+            subprocess.run(['dpkg-deb', '-e', str(package), str(metadata)], check=True)
+            conffiles = (metadata / 'conffiles').read_text().splitlines()
+            self.assertIn('/etc/apt/sources.list.d/hammerhead-control.sources', conffiles)
+            self.assertIn('/etc/apt/keyrings/hammerhead-control-archive-keyring.gpg', conffiles)
             source = (extracted / 'etc/apt/sources.list.d/hammerhead-control.sources').read_text()
             self.assertIn('https://abdooay.github.io/hammerhead-control/apt/', source)
-            self.assertIn('Signed-By: /usr/share/keyrings/hammerhead-control-archive-keyring.gpg', source)
+            self.assertIn('Signed-By: /etc/apt/keyrings/hammerhead-control-archive-keyring.gpg', source)
             self.assertNotIn('Trusted:', source)
             desktop = extracted / 'usr/share/applications/hammerhead-control.desktop'
             subprocess.run(['desktop-file-validate', str(desktop)], check=True)

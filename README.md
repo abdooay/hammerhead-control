@@ -11,7 +11,7 @@ with a KDE system tray and signed APT updates. Controls the USB dongle
 Download the `.deb` from the [latest release](https://github.com/abdooay/hammerhead-control/releases/latest), then install it with APT:
 
 ```sh
-sudo apt install ./hammerhead-control_0.1.0_all.deb
+sudo apt install ./hammerhead-control_0.1.1_all.deb
 sudo apt update
 ```
 
@@ -31,7 +31,8 @@ sudo apt update
 sudo apt install --only-upgrade hammerhead-control
 ```
 
-To remove the application and its update source:
+Removing the app with `apt remove` retains its APT source and signing key,
+so reinstalling stays possible. To remove both the app and its update source:
 
 ```sh
 sudo apt purge hammerhead-control

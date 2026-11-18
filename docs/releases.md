@@ -32,7 +32,7 @@ at the end of the job. Forks and pull-request CI do not receive this key.
 
 APT trusts this key only for the source named in
 `/etc/apt/sources.list.d/hammerhead-control.sources`, using `Signed-By` and the
-package-owned `/usr/share/keyrings/hammerhead-control-archive-keyring.gpg`.
+package-owned `/etc/apt/keyrings/hammerhead-control-archive-keyring.gpg`.
 
 GitHub does not expose stored secret values for download. Preserve access to
 this repository/secret; if it is lost, publish a replacement key and provide

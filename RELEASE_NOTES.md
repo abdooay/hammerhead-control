@@ -1,10 +1,7 @@
-Native Qt 6 controls for Razer Hammerhead V3 HyperSpeed on Linux/KDE.
+Debian packaging update: keep the APT source and its signing key together when the application is removed. `apt purge` removes both.
 
-- ANC, ambient and off controls with device readback.
-- Bluetooth/HyperSpeed source toggle, tray controls and CLI shortcuts.
-- Debian installer with automatic signed APT update-source configuration.
+Existing users can update with `sudo apt update && sudo apt install --only-upgrade hammerhead-control`.
 
-Install the attached `.deb` with `sudo apt install ./hammerhead-control_0.1.0_all.deb`.
-Then run `sudo apt update`. Later releases are available through normal APT upgrades.
+For a new installation, download `hammerhead-control_0.1.1_all.deb` and run `sudo apt install ./hammerhead-control_0.1.1_all.deb`.
 
-Bluetooth discoverable pairing and returning from Bluetooth still require the earbud gestures.
+ANC, ambient, off, source switching, and tray controls are unchanged. Bluetooth pairing still requires the earbud gesture.
