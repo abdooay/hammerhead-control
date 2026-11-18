@@ -11,7 +11,7 @@ with a KDE system tray and signed APT updates. Controls the USB dongle
 Download the `.deb` from the [latest release](https://github.com/abdooay/hammerhead-control/releases/latest), then install it with APT:
 
 ```sh
-sudo apt install ./hammerhead-control_0.1.1_all.deb
+sudo apt install ./hammerhead-control_0.1.2_all.deb
 sudo apt update
 ```
 
@@ -47,6 +47,9 @@ trusted keyring. The full fingerprint is in
 
 - **Noise cancelling / Ambient / Off:** sets the mode, then reads it back
   from the earbuds before selecting the button. The current ANC level is preserved.
+- **Mute / Unmute microphone:** controls the earbud hardware mute, with confirmed
+  device readback. Available in the window, tray, and CLI. Gesture changes appear
+  on the next five-second refresh.
 - **Switch Bluetooth / HyperSpeed:** sends Razer's source-toggle command.
   Switching to Bluetooth disconnects computer controls. Triple-tap an earbud
   to return to HyperSpeed; the app reconnects on its next five-second poll.
@@ -65,6 +68,9 @@ KDE custom shortcuts can run any of these commands:
 hammerhead-control --noise anc
 hammerhead-control --noise ambient
 hammerhead-control --noise off
+hammerhead-control --mic mute
+hammerhead-control --mic unmute
+hammerhead-control --mic toggle
 hammerhead-control --switch-source
 hammerhead-control --status
 hammerhead-control --version
@@ -91,7 +97,7 @@ This is unnecessary for APT installations.
 The tests cover captured report encoding, response validation, disconnected
 and unsupported replies, preserved ANC level, verified readback, GUI errors,
 serialized requests, package contents and reproducible builds. Live device
-checks verified ANC, ambient, off, source switching, and reconnection after
+checks verified ANC, ambient, off, microphone mute/unmute readback, source switching, and reconnection after
 the physical gesture. See the [protocol notes](docs/protocol.md) for source
 provenance and limitations, and [release instructions](docs/releases.md) for
 publishing updates.

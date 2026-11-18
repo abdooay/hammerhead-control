@@ -37,6 +37,8 @@ class DeviceWorker(QObject):
                 status = self.controller.status()
             elif operation == "noise":
                 status = self.controller.set_noise_mode(value)
+            elif operation == "mic":
+                status = self.controller.set_mic_mute(value)
             elif operation == "source":
                 status = self.controller.set_source(value)
             elif operation == "pairing":
@@ -59,7 +61,7 @@ class ControlWindow(QWidget):
         self.setWindowTitle("Hammerhead Control")
         self.setWindowIcon(QIcon(str(ICON_PATH)))
         self.setMinimumWidth(470)
-        self.resize(500, 480)
+        self.resize(500, 600)
         self._status = {
             "connected": False, "accessible": False, "detail": "Looking for your earbuds…",
             "noise_mode": None, "capabilities": [],
@@ -158,6 +160,17 @@ class ControlWindow(QWidget):
         noise_layout.addWidget(self.noise_hint)
         layout.addWidget(noise_group)
 
+        mic_group = QGroupBox("Microphone")
+        mic_layout = QHBoxLayout(mic_group)
+        self.mic_label = self._label("Microphone: Unknown", "micLabel")
+        mic_layout.addWidget(self.mic_label, 1)
+        self.mic_button = QPushButton("Mute microphone")
+        self.mic_button.setObjectName("mic_toggle")
+        self.mic_button.setMinimumHeight(42)
+        self.mic_button.clicked.connect(self.change_mic_mute)
+        mic_layout.addWidget(self.mic_button)
+        layout.addWidget(mic_group)
+
         source_group = QGroupBox("Connection")
         source_layout = QVBoxLayout(source_group)
         self.source_button = QPushButton("Switch Bluetooth / HyperSpeed")
@@ -207,6 +220,10 @@ class ControlWindow(QWidget):
             action.triggered.connect(lambda checked=False, mode=mode: self.request("noise", mode))
             self.tray_menu.addAction(action)
             self._noise_actions[mode] = action
+        self.tray_menu.addSeparator()
+        self.mic_action = self.tray_menu.addAction("Mute microphone")
+        self.mic_action.setObjectName("tray_mic_toggle")
+        self.mic_action.triggered.connect(self.change_mic_mute)
         self.source_action = self.tray_menu.addAction("Switch Bluetooth / HyperSpeed")
         self.source_action.setObjectName("tray_source_toggle")
         self.source_action.triggered.connect(lambda: self.request("source", "toggle"))
@@ -218,6 +235,10 @@ class ControlWindow(QWidget):
         self.tray.setContextMenu(self.tray_menu)
         self.tray.activated.connect(self._tray_activated)
         self.tray.show()
+
+    def change_mic_mute(self):
+        # Apply the action displayed to the user even if a gesture happened meanwhile.
+        self.request("mic", "unmute" if self._status.get("mic_muted") is True else "mute")
 
     def show_controls(self):
         self.showNormal()
@@ -288,12 +309,20 @@ class ControlWindow(QWidget):
         noise_mode = status["noise_mode"] if ready else None
         mode_name = NOISE_MODES.get(noise_mode, "Unknown")
         self.mode_label.setText(f"Current mode: {mode_name}")
-        self.tray.setToolTip(f"Hammerhead Control\n{connection} · {mode_name}")
         for mode, button in self._noise_buttons.items():
             button.setEnabled(enabled and "noise" in capabilities)
             button.setChecked(noise_mode == mode)
             self._noise_actions[mode].setEnabled(button.isEnabled())
             self._noise_actions[mode].setChecked(noise_mode == mode)
+        mic_muted = status["mic_muted"] if ready and "mic" in capabilities else None
+        mic_state = "Unknown" if mic_muted is None else ("Muted" if mic_muted else "Unmuted")
+        self.mic_label.setText(f"Microphone: {mic_state}")
+        mic_action = "Unmute microphone" if mic_muted is True else "Mute microphone"
+        self.mic_button.setText(mic_action)
+        self.mic_action.setText(mic_action)
+        self.mic_button.setEnabled(enabled and "mic" in capabilities)
+        self.mic_action.setEnabled(self.mic_button.isEnabled())
+        self.tray.setToolTip(f"Hammerhead Control\n{connection} · {mode_name}\nMicrophone: {mic_state}")
         self.source_button.setEnabled(enabled and "source" in capabilities)
         self.source_action.setEnabled(self.source_button.isEnabled())
         self.noise_hint.setText("" if "noise" in capabilities else

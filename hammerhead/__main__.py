@@ -11,15 +11,18 @@ def main():
     actions = parser.add_mutually_exclusive_group()
     actions.add_argument('--status', action='store_true', help='print device status as JSON')
     actions.add_argument('--noise', choices=['anc', 'ambient', 'off'], help='set noise control mode')
+    actions.add_argument('--mic', choices=['mute', 'unmute', 'toggle'], help='control the earbud microphone hardware mute')
     actions.add_argument('--switch-source', action='store_true', help='toggle Bluetooth / HyperSpeed (may disconnect computer controls)')
     actions.add_argument('--pair', action='store_true', help='enter Bluetooth pairing, if supported')
     args = parser.parse_args()
-    if args.status or args.noise or args.switch_source or args.pair:
+    if args.status or args.noise or args.mic or args.switch_source or args.pair:
         from .device import Controller, DeviceError
         controller = Controller()
         try:
             if args.noise:
                 result = controller.set_noise_mode(args.noise)
+            elif args.mic:
+                result = controller.set_mic_mute(args.mic)
             elif args.switch_source:
                 result = controller.set_source('toggle')
             elif args.pair:

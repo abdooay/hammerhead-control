@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 from contextlib import contextmanager
 from hammerhead.protocol import Command, DeviceError, NoResponse, ProtocolError, checksum, make_report, parse_response
-from hammerhead.device import Controller, GET_NOISE, GET_CONNECTION, SWITCH_SOURCE, read_noise
+from hammerhead.device import Controller, GET_NOISE, GET_CONNECTION, SWITCH_SOURCE, GET_MIC_MUTE, read_mic_mute, read_noise
 
 # Captured from this user's 1532:0a61 device; independent of packet construction.
 ANC_OFF_REPLY = bytes.fromhex('02026100000003188601000a' + '00' * 50 + '9600')
@@ -70,6 +70,7 @@ class ProtocolTests(unittest.TestCase):
 
 class FakeTransport:
     def __init__(self, mode=0, confirm=True):
+        self.muted = False
         self.mode = mode
         self.confirm = confirm
         self.commands = []
@@ -78,6 +79,12 @@ class FakeTransport:
         self.commands.append(command)
         if command == GET_NOISE:
             return bytes([1, self.mode, 7])
+        if command == GET_MIC_MUTE:
+            return bytes([1, 2, int(self.muted)])
+        if command.command_class == 0x18 and command.command_id == 4:
+            if self.confirm:
+                self.muted = bool(command.arguments[2])
+            return command.arguments
         if command == GET_CONNECTION:
             return bytes([1, 3, 0])
         if command.command_class == 0x18 and command.command_id == 6:
@@ -113,6 +120,39 @@ class ControllerTests(unittest.TestCase):
         transport = FakeTransport()
         self.setup_controller(transport).set_noise_mode('off')
         self.assertFalse(any(command.command_id == 6 for command in transport.commands))
+
+    def test_mic_mute_unmute_and_toggle_require_readback(self):
+        transport = FakeTransport()
+        controller = self.setup_controller(transport)
+        for action, expected in [('mute', True), ('unmute', False), ('toggle', True), ('toggle', False)]:
+            with self.subTest(action=action, expected=expected):
+                transport.commands.clear()
+                status = controller.set_mic_mute(action)
+                self.assertEqual(status['mic_muted'], expected)
+                self.assertEqual(transport.commands[:3], [GET_MIC_MUTE,
+                    Command(0x18, 4, bytes([1, 2, int(expected)])), GET_MIC_MUTE])
+                self.assertIn('mic', status['capabilities'])
+
+    def test_mic_mute_rejects_unconfirmed_write(self):
+        with self.assertRaisesRegex(DeviceError, 'did not confirm'):
+            self.setup_controller(FakeTransport(confirm=False)).set_mic_mute('mute')
+
+    def test_mic_mute_avoids_redundant_write(self):
+        transport = FakeTransport()
+        self.setup_controller(transport).set_mic_mute('unmute')
+        self.assertFalse(any(c.command_id == 4 for c in transport.commands))
+
+    def test_mic_mute_invalid_action_never_touches_device(self):
+        transport = FakeTransport()
+        with self.assertRaises(DeviceError):
+            self.setup_controller(transport).set_mic_mute('invalid')
+        self.assertEqual(transport.commands, [])
+
+    def test_mic_mute_rejects_wrong_profile_target_or_state(self):
+        from unittest.mock import Mock
+        for data in (b'', bytes([1, 2]), bytes([0, 2, 0]), bytes([1, 1, 0]), bytes([1, 2, 2])):
+            with self.subTest(data=data), self.assertRaises(ProtocolError):
+                read_mic_mute(Mock(exchange=Mock(return_value=data)))
 
     def test_only_exact_model_source_toggle_sent(self):
         transport = FakeTransport()

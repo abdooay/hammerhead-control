@@ -11,6 +11,7 @@ from .protocol import Command, DeviceError, NoResponse, ProtocolError, make_repo
 
 
 NOISE_VALUES = {'off': 0, 'anc': 1, 'ambient': 0x50}
+GET_MIC_MUTE = Command(0x18, 0x84, bytes([1, 2]))
 GET_NOISE = Command(0x18, 0x86, bytes([1]))
 GET_CONNECTION = Command(0x18, 0x9a, bytes([1]), device_type=0)
 SWITCH_SOURCE = Command(0x18, 0x1d, b'')
@@ -101,10 +102,17 @@ def read_connection(transport):
     return data[1], data[2]
 
 
-def ready_status(noise_mode, wireless, bluetooth):
+def read_mic_mute(transport):
+    data = transport.exchange(GET_MIC_MUTE)
+    if len(data) != 3 or data[:2] != bytes([1, 2]) or data[2] not in (0, 1):
+        raise ProtocolError('The earbuds returned an unrecognized microphone mute state.')
+    return bool(data[2])
+
+
+def ready_status(noise_mode, wireless, bluetooth, mic_muted):
     return {'connected': True, 'accessible': True, 'detail': 'Connected through the HyperSpeed dongle.',
-            'noise_mode': noise_mode, 'wireless_earbuds': wireless, 'bluetooth_earbuds': bluetooth,
-            'capabilities': ['noise', 'source']}
+            'noise_mode': noise_mode, 'mic_muted': mic_muted, 'wireless_earbuds': wireless, 'bluetooth_earbuds': bluetooth,
+            'capabilities': ['noise', 'source', 'mic']}
 
 
 class Controller:
@@ -131,7 +139,7 @@ class Controller:
             with self._device() as transport:
                 noise, _ = read_noise(transport)
                 wireless, bluetooth = read_connection(transport)
-                return ready_status(noise, wireless, bluetooth)
+                return ready_status(noise, wireless, bluetooth, read_mic_mute(transport))
         except NoResponse:
             return {**base, 'accessible': True, 'detail': 'Dongle detected. Wake the earbuds and switch them to HyperSpeed mode.'}
 
@@ -146,7 +154,22 @@ class Controller:
             if actual != mode:
                 raise DeviceError('The earbuds did not confirm the requested listening mode.')
             wireless, bluetooth = read_connection(transport)
-            return ready_status(actual, wireless, bluetooth)
+            return ready_status(actual, wireless, bluetooth, read_mic_mute(transport))
+
+    def set_mic_mute(self, mode):
+        if mode not in ('mute', 'unmute', 'toggle'):
+            raise DeviceError(f'Unknown microphone action: {mode}')
+        with self._device() as transport:
+            current = read_mic_mute(transport)
+            requested = not current if mode == 'toggle' else mode == 'mute'
+            if current != requested:
+                transport.exchange(Command(0x18, 0x04, bytes([1, 2, int(requested)])))
+            actual = read_mic_mute(transport)
+            if actual != requested:
+                raise DeviceError('The earbuds did not confirm the requested microphone mute state.')
+            noise, _ = read_noise(transport)
+            wireless, bluetooth = read_connection(transport)
+            return ready_status(noise, wireless, bluetooth, actual)
 
     def set_source(self, source):
         if source != 'toggle':
@@ -156,7 +179,7 @@ class Controller:
             try:
                 wireless, bluetooth = read_connection(transport)
                 noise, _ = read_noise(transport)
-                status = ready_status(noise, wireless, bluetooth)
+                status = ready_status(noise, wireless, bluetooth, read_mic_mute(transport))
                 status['detail'] = 'The earbuds acknowledged the audio-source switch.'
                 return status
             except NoResponse:

@@ -59,7 +59,7 @@ Recommends: qt6-wayland
 Installed-Size: {installed_size}
 Homepage: https://github.com/abdooay/hammerhead-control
 Description: KDE controls for Razer Hammerhead V3 HyperSpeed earbuds
- Native Qt controls for ANC, ambient listening and source switching.
+ Native Qt controls for ANC, ambient listening, microphone mute and source switching.
  Includes a system tray and a signed APT update source.
 ''')
         (metadata / 'conffiles').write_text('/etc/apt/sources.list.d/hammerhead-control.sources\n/etc/apt/keyrings/hammerhead-control-archive-keyring.gpg\n')

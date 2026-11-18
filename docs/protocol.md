@@ -57,6 +57,8 @@ the reply to the protocol parser, so its parser offsets are one lower.
 
 | Operation | Class | ID | Request payload | Expected response payload | Device type |
 | --- | --- | --- | --- | --- | --- |
+| Read microphone mute | `18` | `84` | `01 02` | profile, target, muted | 3 |
+| Set microphone mute | `18` | `04` | `01 02 muted` | profile, target, muted | 3 |
 | Read ANC | `18` | `86` | `01` | profile, state, level | 3 |
 | Set ANC | `18` | `06` | `01 state level` | profile, state, level | 3 |
 | Toggle Bluetooth / HyperSpeed | `18` | `1d` | empty | inspect acknowledgement | 3 |
@@ -75,6 +77,27 @@ calls `switchAudioConnectionMode`; it does **not** use the generic
 Connection read: 46526–46550 and 116157. Its helper explicitly overrides the
 transaction's device type to 0. Connection type 1 means earbuds; each status
 is 0 disconnected, 1 left only, 2 right only, 3 both connected (46970).
+
+## Microphone mute
+
+The product explicitly enables `audioBasicFeature` with `isHwMicMuteOnly: true`
+(middleware line 139794). Its device interface uses profile 1 for
+`getMicMuteState` / `setMicMuteState` (116511–116536). These delegate to the
+mute helpers (44930–44937, 44782–44804), targeting `Mic = 2` (45528).
+Command definitions at 45414–45417 encode class `0x18`, read `0x84`, write `0x04`.
+Payloads are `[profile, target]` for reads and `[profile, target, muted]`
+for writes. The returned state is `0` unmuted, `1` muted.
+
+The controller validates profile, target, and state and verifies every change
+with a fresh read. Status polling reflects gesture changes; the application
+does not change the desktop audio server's separate software mute setting.
+The [official manual, page 10](https://dl.razerzone.com/master-guides/RazerSynapse4/HAMMERHEADV3HYPERSPEED-00002657-en.pdf)
+identifies the right-earbud hold gesture as microphone mute/unmute.
+
+Live checks returned `01 02 00` initially, `01 02 01` after muting, and
+`01 02 00` after unmuting. Both GUI and tray operations passed device readback.
+The initial unmuted state was restored. This validates device state; microphone
+audio samples were not recorded as part of this check.
 
 ## Notifications
 
